@@ -1,0 +1,878 @@
+# KRMU Campus Intelligence Platform — Master AI Build Prompt
+
+> This document is the single source of truth for building this project. Read it fully before writing any code. Every business rule an AI would otherwise have to guess — SLA behavior, grievance transitions, the gap score formula, error format, pagination — is defined explicitly below. Do not invent behavior that isn't written here; if something is genuinely missing, ask before proceeding.
+
+---
+
+## 0. ARCHITECTURE FREEZE — READ THIS FIRST
+
+The following technology choices are **fixed and final**. Do not replace, remove, downgrade, upgrade, or add any core technology without explicit approval from the user.
+
+| Layer | Fixed Technology |
+|---|---|
+| Frontend | React.js — plain JavaScript (JSX), **not** TypeScript |
+| Backend | FastAPI (Python) |
+| Database | PostgreSQL |
+| ORM | SQLAlchemy |
+| Migrations | Alembic |
+| Background Jobs | FastAPI's built-in `BackgroundTasks` |
+| NLP | Python (lightweight libraries only — see Section 11) |
+| Analytics | Power BI |
+| Notifications | Firebase Cloud Messaging (Web Push) |
+| Maps | Google Maps API (for transport routes/stops display) |
+| Containerization | Docker + Docker Compose |
+| CI/CD | GitHub Actions |
+| Deployment | Handled separately by the user — not the AI's responsibility |
+
+**Redis is explicitly NOT part of version 1.**
+Do not install, configure, import, or reference Redis anywhere in the codebase — not in `requirements.txt`, not in `docker-compose.yml`, not as a cache, not as a queue. The application must have zero dependency on Redis. If a caching need comes up, use in-memory Python data structures or PostgreSQL itself — never Redis.
+
+---
+
+## 1. PROJECT OVERVIEW
+
+**Project Name:** KRMU Campus Intelligence Platform
+
+**What it is:** A web application for a university campus that lets students submit feedback and grievances (complaints), automatically analyzes that feedback with NLP, routes grievances to the right staff with SLA (deadline) tracking, sends real-time notifications, logs every important action for auditing, and gives admins a Power BI–integrated analytics dashboard on how the campus is performing.
+
+**Scope — read carefully:**
+- This is a **web-only application**. There is no mobile app.
+- It is **one single web application** built in React.js. Students, staff, and admins all use the same app — what they see and can do changes based on their role (role-based views), not separate apps.
+- The backend is a single FastAPI service talking to one PostgreSQL database.
+
+**Core Modules:**
+1. Identity & Role-Based Access Control (RBAC)
+2. Campus Structure (Departments, Categories, Facilities, Transport)
+3. Student Feedback + NLP Sentiment/Topic Analysis
+4. Grievance Management + SLA Tracking + Status Updates
+5. Notifications (real-time, via Firebase Web Push)
+6. Audit Logging (for security and compliance)
+7. Power BI–Integrated Analytics & Operational Intelligence Layer
+8. Data Import module (Attendance, Exam Schedule, Facility Usage, Feedback, Transport)
+9. One React.js web app containing the Student Portal, Staff Portal, and Admin Dashboard, each shown based on the logged-in user's role
+
+---
+
+## 2. TECH STACK
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Frontend | React.js — plain JavaScript (JSX). Not TypeScript. | Single web app for Student / Staff / Admin, with role-based views |
+| Styling | Tailwind CSS | UI styling |
+| Routing | React Router | Client-side page navigation |
+| HTTP Client | Axios | Frontend to backend communication |
+| Maps | Google Maps API (JavaScript SDK) | Displaying transport routes and stops |
+| Backend | FastAPI (Python) | REST API & business logic |
+| Validation | Pydantic | Request/response schema validation |
+| ORM | SQLAlchemy | Database interaction |
+| Migrations | Alembic | Database schema version control |
+| Database | PostgreSQL | Primary data store — the only data store; no cache layer |
+| Background Jobs | FastAPI's built-in `BackgroundTasks` | Runs NLP analysis, SLA breach checks, and notifications — no separate worker process |
+| NLP Engine | Python — lightweight libraries only (see Section 11) | Sentiment analysis, keyword extraction, topic detection |
+| Analytics | Power BI, connected directly to PostgreSQL | Reads `operational_metrics` to build the admin's KPI dashboards |
+| Notifications | Firebase Cloud Messaging (Web Push) | Real-time browser notifications |
+| Containerization | Docker + Docker Compose | Consistent local development setup |
+| CI/CD | GitHub Actions | Automatically lints and tests code on every push |
+| Version Control | Git + GitHub | Source code management |
+| Configuration | `.env` files | Stores secrets and environment-specific settings |
+| Testing | Pytest | Backend and API testing |
+| API Documentation | FastAPI's built-in Swagger / OpenAPI docs | Auto-generated, always kept in sync with the code |
+
+**Hard rules for the AI:**
+- **No Celery, no RQ, no Redis, no separate worker service, in any form.** All background work uses FastAPI's built-in `BackgroundTasks` only.
+- **React must be plain JavaScript, not TypeScript.** No `.ts` / `.tsx` files.
+- **Deployment is not the AI's job.** Deliver a project that runs correctly on a local machine via `docker-compose up`, with clear instructions. Do not configure Nginx, cloud servers, or production database hosting.
+
+---
+
+## 3. HIGH-LEVEL SYSTEM ARCHITECTURE
+
+```
+                 ┌─────────────────────────┐
+                 │        STUDENTS         │
+                 │      Web Interface      │
+                 └────────────┬────────────┘
+                              │ HTTPS / REST
+                              ▼
+┌──────────────────────────────────────────────────────────┐
+│                  API GATEWAY / BACKEND                    │
+│                        FastAPI                            │
+│  Auth │ Feedback │ Grievance │ SLA │ Analytics │ Notify   │
+└────────────────────────────┬───────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+       ┌────────────┐  ┌─────────────┐  ┌────────────────┐
+       │ PostgreSQL │  │  NLP Engine │  │ BackgroundTasks│
+       │ (only DB)  │  │  (Python)   │  │  (in-process)  │
+       └────────────┘  └─────────────┘  └────────────────┘
+              │
+              ▼
+                 ┌────────────────────────┐
+                 │   Intelligence Layer    │
+                 │ operational_metrics /   │
+                 │ Gap Score / Trends /    │
+                 │ SLA Analytics           │
+                 └────────────┬────────────┘
+              ┌────────────────┼────────────────┐
+              ▼                ▼                ▼
+       ┌──────────┐     ┌────────────┐   ┌──────────────┐
+       │  React   │     │  Power BI  │   │ Notifications│
+       │Dashboard │     │ Analytics  │   │  (Firebase)  │
+       └──────────┘     └────────────┘   └──────────────┘
+```
+
+### Data-domain grouping
+
+```
+PostgreSQL (single database, no cache layer)
+   ├── Identity & RBAC (roles, users, students, staff)
+   ├── Campus Structure (departments, categories, facilities, transport)
+   ├── Student Experience
+   │     ├── Feedback → Feedback NLP Analysis
+   │     └── Grievance → SLA / Grievance Updates
+   ├── Notifications
+   ├── Audit Logs
+   ├── Data Imports
+   └── Analytics Layer
+         └── Operational Metrics → Power BI
+```
+
+---
+
+## 4. USER ROLES
+
+| Role | What they can do |
+|---|---|
+| **Student** | Submit feedback, submit grievances, track grievance status, receive notifications |
+| **Staff** | View and resolve grievances assigned to them, update grievance status |
+| **HOD** (Head of Department) | Everything Staff can do, plus oversee all feedback/grievances for their department |
+| **Admin** | Manage roles, departments, categories, SLA policies, data imports; view all data and full analytics |
+| **System** (backend, not a real user) | Runs NLP analysis, checks for SLA breaches, triggers notifications automatically |
+
+---
+
+## 5. AUTHENTICATION RULES
+
+- **Access token expiry:** 15 minutes
+- **Refresh token expiry:** 7 days
+- **Password hashing:** bcrypt
+- **Password reset (forgot password / email reset flow): NOT included in v1.** There is no email-sending service defined in this project, so building a "forgot password" email flow is out of scope. Instead: in v1, only an **Admin can manually reset a user's password** from the admin panel. Do not build `/auth/password-reset` for self-service email reset in v1.
+- Every protected endpoint must go through a JWT-based dependency (`get_current_user`) and, where relevant, a role check (`require_role(...)`).
+
+---
+
+## 6. CORE USER WORKFLOWS
+
+### 6.1 Student Feedback Flow
+```
+Student logs in → goes to Dashboard → submits Feedback (text + rating, optionally anonymous)
+   → NLP analyzes it (sentiment, keywords, topics, severity) → result saved in feedback_analysis
+   → Result becomes visible in Analytics
+```
+If NLP fails, see Section 11.6 — feedback submission must still succeed.
+
+### 6.2 Student Grievance Flow
+```
+Student submits a Grievance (title, description, category)
+   → System detects priority and auto-assigns it to the right department
+   → SLA timer starts (deadline depends on sla_policies for that priority)
+   → Staff works on it and resolves it (every status change is logged in grievance_updates)
+   → Student reviews the resolution:
+        - Accepts it → Grievance is Closed
+        - Rejects it → Grievance is Reopened → a NEW SLA cycle starts → goes back to Staff
+   → Student is notified at every status change
+   → If the SLA deadline is missed, an escalation notification is triggered automatically
+```
+
+---
+
+## 7. GRIEVANCE STATUS TRANSITION RULES
+
+The AI must enforce these exact transitions in the backend. No other status change is allowed. Any attempt to make an invalid transition must be rejected with a `409 Conflict` error.
+
+| Transition | Who is allowed to perform it |
+|---|---|
+| `open` → `in_progress` | Assigned Staff, or Admin |
+| `in_progress` → `resolved` | Assigned Staff, or Admin |
+| `resolved` → `closed` | Student (the grievance owner), or Admin |
+| `resolved` → `reopened` | Student (the grievance owner) only |
+| `reopened` → `in_progress` | Assigned Staff, or Admin |
+| `closed` → anything | Not allowed. `closed` is final in v1. (Admin override, if ever needed, is a v2 decision — do not build it now.) |
+
+Every transition — valid or attempted-and-rejected — should still be logged appropriately: valid transitions go into `grievance_updates`; rejected attempts should just return the error and are not logged as a status change.
+
+---
+
+## 8. SLA ENGINE SPECIFICATION
+
+### 8.1 Default SLA durations (seeded into `sla_policies`, editable later by Admin)
+
+| Priority | SLA Duration |
+|---|---|
+| Urgent (Critical) | 4 hours |
+| High | 24 hours |
+| Medium | 72 hours (3 days) |
+| Low | 120 hours (5 days) |
+
+### 8.2 Warning and breach behavior
+- **Warning** triggers when **80%** of the SLA duration has elapsed (`sla_policies.warning_percentage = 80` by default). At this point, `sla_events.status` becomes `warning` and a notification is sent to the assigned staff and the department HOD.
+- **Breach** triggers the moment `deadline_at` passes with the grievance not yet resolved. `sla_events.status` becomes `breached`, `breached_at` is set, and `operational_metrics.sla_breaches` reflects it in the next aggregation run.
+- **On breach, notify:** the assigned staff, the department HOD, and the Admin (all three, via in-app + push notification).
+
+### 8.3 Other SLA rules (explicit, do not guess)
+- **SLA is never paused** in v1. The clock runs continuously from `started_at` to `deadline_at` regardless of weekends, holidays, or staff availability.
+- **A resolved grievance stops its SLA.** The moment status becomes `resolved`, set `sla_events.completed_at = resolved_at` and `sla_events.status = completed`. No further breach checks run on it.
+- **A reopened grievance creates a brand-new `sla_events` row** (a new SLA cycle starts from the moment it's reopened, using the same `sla_policies` priority). The original `sla_events` row is kept as-is for audit/history — do not delete or overwrite it.
+
+---
+
+## 9. DATABASE SCHEMA (PostgreSQL)
+
+**This section (Section 9) is the single authoritative source for the database schema.** Do not derive schema details from any other document, diagram, or assumption — if a column isn't listed here, it doesn't exist.
+
+**Schema rules the AI must follow for every table:**
+- Every table uses a **UUID** as its primary key (enable the `uuid-ossp` extension).
+- Every table has `created_at` (and `updated_at` where relevant), stored in UTC.
+- Soft delete is used wherever an `is_active` column exists — do not hard-delete those rows.
+- All foreign keys use `ON UPDATE CASCADE`. Foreign keys on important relationships use `ON DELETE RESTRICT` (don't allow deleting a row that other rows depend on).
+- `JSONB` columns are used for flexible/structured data that doesn't need its own table.
+
+### Required extensions
+```sql
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+```
+
+There are **19 tables total**, numbered below. Build the Alembic migration to cover all 19 in one initial migration (Phase 1).
+
+### TABLE 01 — `roles`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| name | VARCHAR(50) UNIQUE | student / staff / hod / admin |
+| description | TEXT | |
+
+### TABLE 02 — `users`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| email | VARCHAR(255) UNIQUE | |
+| password_hash | TEXT | |
+| full_name | VARCHAR(255) | |
+| phone | VARCHAR(20) | |
+| role_id | UUID FK → roles.id | |
+| is_active | BOOLEAN | |
+| is_verified | BOOLEAN | |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | |
+| last_login_at | TIMESTAMP | |
+
+### TABLE 03 — `students`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| user_id | UUID UNIQUE FK → users.id | |
+| student_id | VARCHAR(50) UNIQUE | college-issued student ID |
+| roll_number | VARCHAR(50) | |
+| department_id | UUID FK → departments.id | |
+| semester | INTEGER | |
+| program | VARCHAR(100) | e.g. B.Tech, BCA, MBA |
+| course_name | VARCHAR(150) | e.g. Computer Science Engineering, Data Science |
+| hostel_id | UUID NULL FK | |
+| room_number | VARCHAR(20) | |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | |
+
+### TABLE 04 — `staff`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| user_id | UUID UNIQUE FK → users.id | |
+| employee_id | VARCHAR(50) UNIQUE | |
+| department_id | UUID FK → departments.id | |
+| designation | VARCHAR(100) | |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | |
+
+### TABLE 05 — `departments`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| name | VARCHAR(100) UNIQUE | |
+| code | VARCHAR(20) UNIQUE | |
+| description | TEXT | |
+| hod_staff_id | UUID NULL FK → staff.id | |
+| is_active | BOOLEAN | |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | |
+
+### TABLE 06 — `categories`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| name | VARCHAR(100) | |
+| description | TEXT | |
+| department_id | UUID FK → departments.id | |
+| is_active | BOOLEAN | |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | |
+
+### TABLE 07 — `feedback`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| student_id | UUID FK → students.id | |
+| category_id | UUID FK → categories.id | |
+| content | TEXT | |
+| rating | SMALLINT | |
+| is_anonymous | BOOLEAN | |
+| status | VARCHAR(20) | submitted / analyzed / analysis_failed |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | |
+
+### TABLE 08 — `feedback_analysis` (one-to-one with `feedback`)
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| feedback_id | UUID UNIQUE FK → feedback.id | |
+| sentiment | VARCHAR(20) NULL | positive / neutral / negative — NULL if analysis failed |
+| sentiment_score | DECIMAL(5,2) NULL | |
+| category_prediction | VARCHAR(100) NULL | |
+| severity | VARCHAR(20) NULL | |
+| confidence_score | DECIMAL(5,2) NULL | |
+| language | VARCHAR(10) NULL | |
+| keywords | JSONB NULL | |
+| topics | JSONB NULL | |
+| model_name | VARCHAR(100) NULL | |
+| model_version | VARCHAR(50) NULL | |
+| analysis_status | VARCHAR(20) | PENDING / COMPLETED / FAILED |
+| error_message | TEXT NULL | populated only if analysis_status = FAILED |
+| processed_at | TIMESTAMP NULL | |
+
+### TABLE 09 — `grievances`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| ticket_number | VARCHAR(30) UNIQUE | auto-generated on creation |
+| student_id | UUID FK → students.id | |
+| category_id | UUID FK → categories.id | |
+| department_id | UUID FK → departments.id | |
+| assigned_staff_id | UUID NULL FK → staff.id | |
+| title | VARCHAR(200) | |
+| description | TEXT | |
+| priority | VARCHAR(20) | low / medium / high / urgent |
+| status | VARCHAR(20) | open / in_progress / resolved / closed / reopened |
+| source | VARCHAR(30) | web / admin_created |
+| created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | |
+| resolved_at | TIMESTAMP NULL | |
+| closed_at | TIMESTAMP NULL | |
+
+### TABLE 10 — `grievance_updates`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| grievance_id | UUID FK → grievances.id | |
+| updated_by | UUID FK → users.id | |
+| old_status | VARCHAR(20) | |
+| new_status | VARCHAR(20) | |
+| comment | TEXT | |
+| created_at | TIMESTAMP | |
+
+### TABLE 11 — `sla_policies`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| priority | VARCHAR(20) UNIQUE | matches grievance priority values |
+| duration_minutes | INTEGER | see Section 8.1 for seed values |
+| warning_percentage | INTEGER | default 80 |
+| is_active | BOOLEAN | |
+| created_at | TIMESTAMP | |
+
+### TABLE 12 — `sla_events`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| grievance_id | UUID FK → grievances.id | **Not unique** — a grievance can have more than one `sla_events` row over its lifetime if it is reopened (see Section 8.3) |
+| sla_policy_id | UUID FK → sla_policies.id | |
+| started_at | TIMESTAMP | |
+| deadline_at | TIMESTAMP | |
+| warning_at | TIMESTAMP | |
+| completed_at | TIMESTAMP NULL | |
+| status | VARCHAR(20) | on_track / warning / breached / completed |
+| breached_at | TIMESTAMP NULL | |
+
+### TABLE 13 — `notifications`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| user_id | UUID FK → users.id | |
+| type | VARCHAR(50) | |
+| title | VARCHAR(200) | |
+| message | TEXT | |
+| reference_type | VARCHAR(50) NULL | e.g. "grievance" |
+| reference_id | UUID NULL | id of the related record |
+| is_read | BOOLEAN | |
+| created_at | TIMESTAMP | |
+| read_at | TIMESTAMP NULL | |
+
+### TABLE 14 — `audit_logs`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| user_id | UUID NULL FK → users.id | |
+| action | VARCHAR(100) | e.g. "grievance_status_updated" |
+| entity_type | VARCHAR(50) | |
+| entity_id | UUID | |
+| old_values | JSONB NULL | |
+| new_values | JSONB NULL | |
+| ip_address | INET | |
+| user_agent | TEXT | |
+| created_at | TIMESTAMP | |
+
+### TABLE 15 — `facilities`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| name | VARCHAR(100) | |
+| type | VARCHAR(50) | |
+| location | VARCHAR(255) | |
+| department_id | UUID FK → departments.id | |
+| capacity | INTEGER NULL | |
+| is_active | BOOLEAN | |
+| created_at | TIMESTAMP | |
+
+### TABLE 16 — `transport_routes`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| route_name | VARCHAR(100) | |
+| route_number | VARCHAR(50) UNIQUE | |
+| description | TEXT | |
+| is_active | BOOLEAN | |
+| created_at | TIMESTAMP | |
+
+### TABLE 17 — `transport_stops`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| route_id | UUID FK → transport_routes.id | |
+| name | VARCHAR(100) | |
+| latitude | DECIMAL(9,6) | used to plot on Google Maps |
+| longitude | DECIMAL(9,6) | used to plot on Google Maps |
+| sequence | INTEGER | order of the stop on the route |
+
+### TABLE 18 — `data_imports`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| uploaded_by | UUID FK → users.id | |
+| file_name | VARCHAR(255) | |
+| data_type | VARCHAR(50) | one of: attendance / exam_schedule / facility_usage / feedback / transport |
+| status | VARCHAR(20) | uploaded / validating / preview_ready / importing / completed / failed |
+| total_records | INTEGER | |
+| successful_records | INTEGER | |
+| failed_records | INTEGER | |
+| error_report | JSONB NULL | list of row-level rejection reasons |
+| created_at | TIMESTAMP | |
+| completed_at | TIMESTAMP NULL | |
+
+### TABLE 19 — `operational_metrics`
+| Column | Type | Notes |
+|---|---|---|
+| id | UUID PK | |
+| department_id | UUID FK → departments.id | |
+| category_id | UUID FK → categories.id | |
+| metric_date | DATE | |
+| total_feedback | INTEGER | |
+| negative_feedback | INTEGER | |
+| total_grievances | INTEGER | |
+| resolved_grievances | INTEGER | |
+| sla_breaches | INTEGER | |
+| avg_resolution_minutes | INTEGER | |
+| student_satisfaction | DECIMAL(5,2) | stored as a 0–100 percentage |
+| gap_score | DECIMAL(5,2) | 0–100, see Section 12.3 for the exact formula |
+| created_at | TIMESTAMP | |
+
+### Relationship Summary
+- User → Student (1-1) | User → Staff (1-1)
+- Department → Staff (1-N) | Department → Category (1-N) | Department → Facilities (1-N)
+- Student → Feedback (1-N) | Feedback → Feedback Analysis (1-1)
+- Student → Grievance (1-N) | Grievance → Updates (1-N) | Grievance → SLA Events (1-N, see Section 8.3)
+- SLA Policy → SLA Events (1-N)
+- User → Notifications (1-N) | User → Audit Logs (1-N)
+- Route → Stops (1-N)
+
+---
+
+## 10. DATA IMPORT SPECIFICATION
+
+The Admin-only data import feature is not a generic file uploader. It supports exactly these **five** import types, each mapped to `data_imports.data_type`:
+
+1. **Attendance**
+2. **Exam Schedule**
+3. **Facility Usage**
+4. **Feedback**
+5. **Transport**
+
+### Import workflow (must be built exactly in this order)
+```
+Upload file (.csv or .xlsx)
+   ↓
+Validate (check required columns exist, check data types, check foreign keys resolve)
+   ↓
+Preview (show the admin a sample of parsed rows + validation results before committing)
+   ↓
+Import (admin confirms → rows are inserted)
+   ↓
+Reject invalid rows (valid rows are still imported; invalid ones are skipped, not the whole file)
+   ↓
+Generate import report (total_records, successful_records, failed_records, error_report listing exactly which rows failed and why)
+```
+Every import run creates one `data_imports` row tracking this whole lifecycle.
+
+---
+
+## 11. NLP REQUIREMENTS (Feedback Analysis)
+
+### 11.1 What it must do
+1. **Sentiment Analysis** — classify each feedback as positive, neutral, or negative, with a confidence score
+2. **Keyword Extraction** — pull out the important words/phrases (saved as JSONB)
+3. **Topic Modeling** — detect recurring themes across many feedback entries (saved as JSONB)
+4. **Severity Detection** — flag strongly negative feedback so it can be escalated
+5. **Language Detection** — should handle both English and basic Hindi feedback
+
+### 11.2 Implementation constraints
+- Use **lightweight, free, open-source Python libraries only** (e.g. spaCy, scikit-learn, NLTK, TextBlob, VADER). 
+- **Do not call any paid external AI API** (OpenAI, Anthropic, Google Cloud NLP, AWS Comprehend, etc.) unless the user explicitly approves it first.
+- The first implementation (v1) should include: text preprocessing (cleaning, tokenization) → sentiment classification → keyword extraction → basic topic modeling → severity classification, all running locally in the Python backend.
+
+### 11.3 How it runs
+Immediately after a student submits feedback, kick off the analysis using FastAPI's `BackgroundTasks` (no separate worker process, no Celery, no Redis) — write the result into `feedback_analysis` once done.
+
+### 11.4 NLP failure handling — explicit, do not guess
+```
+Feedback submitted
+       ↓
+Feedback row is saved successfully (status = "submitted") — this always succeeds
+       ↓
+NLP background task runs
+       ↓
+   If it fails:
+       feedback_analysis.analysis_status = FAILED
+       feedback_analysis.error_message = <captured error>
+       feedback.status = "analysis_failed"
+       error is logged (structured log, and ideally an audit_logs entry)
+       ↓
+   If it succeeds:
+       feedback_analysis.analysis_status = COMPLETED
+       feedback.status = "analyzed"
+```
+**A feedback submission must never fail or be rejected just because the NLP step failed or is slow.** The student always gets a successful "Feedback submitted" response the moment the `feedback` row is saved — NLP happens after, in the background, and its failure is invisible to the student (visible only to Admin, who can see `analysis_status = FAILED` entries and optionally retry).
+
+---
+
+## 12. ANALYTICS & POWER BI INTEGRATION
+
+### 12.1 Data flow
+```
+PostgreSQL (raw tables: feedback, grievances, sla_events, etc.)
+      ↓
+   Daily aggregation job (BackgroundTasks / scheduled function)
+      ↓
+operational_metrics table (one row per department + category + date)
+      ↓
+Power BI (connects directly to PostgreSQL, reads operational_metrics)
+      ↓
+Admin Analytics Dashboard (Power BI reports embedded or linked, plus a lightweight
+   React/Recharts summary view inside the app itself for quick glance)
+```
+The React admin dashboard is a **quick-glance summary only** (a few key charts). Power BI is the deep, exportable analytics tool, and it reads directly from `operational_metrics` — the AI does not need to build a Power BI connector; it only needs to make sure `operational_metrics` is correctly and reliably populated, since Power BI is configured separately by the user on top of it.
+
+### 12.2 Power BI KPIs (must be derivable from `operational_metrics`)
+- Total Feedback
+- Negative Feedback %
+- Total Grievances
+- Open Grievances
+- Resolved Grievances
+- Average Resolution Time
+- SLA Compliance %
+- SLA Breaches
+- Recurring Issues (top categories by feedback/grievance volume)
+- Department Performance (comparison across departments)
+- Operational Gap Score
+- Student Satisfaction
+
+### 12.3 Operational Gap Score — exact formula
+
+Do not guess this. Use the following formula and weights for v1 (they can be tuned later by the user, but the AI must implement exactly this to start):
+
+```
+Gap Score =
+    (NegativeSentimentScore   × 0.20) +
+    (SLABreachRate            × 0.25) +
+    (ResolutionDelayScore     × 0.20) +
+    (GrievanceVolumeScore     × 0.15) +
+    (DissatisfactionScore     × 0.20)
+```
+
+Where each component is a 0–100 value, calculated per department per period as:
+
+| Component | Formula |
+|---|---|
+| `NegativeSentimentScore` | `(negative_feedback / total_feedback) × 100` (0 if `total_feedback` is 0) |
+| `SLABreachRate` | `(sla_breaches / total_grievances) × 100` (0 if `total_grievances` is 0) |
+| `ResolutionDelayScore` | `min(100, (avg_resolution_minutes / sla_target_minutes_for_period) × 100)` — compares actual average resolution time against the SLA target duration for that priority mix |
+| `GrievanceVolumeScore` | `(this department's total_grievances / the highest total_grievances among all departments in the same period) × 100` |
+| `DissatisfactionScore` | `100 − student_satisfaction` (since `student_satisfaction` is already stored as a 0–100 percentage) |
+
+**Result bands:**
+| Gap Score | Label |
+|---|---|
+| 0–30 | Low |
+| 31–60 | Moderate |
+| 61–80 | High |
+| 81–100 | Critical |
+
+The final `gap_score` written to `operational_metrics` should be rounded to 2 decimal places.
+
+---
+
+## 13. REQUIRED API MODULES (FastAPI)
+
+| Route prefix | What it does |
+|---|---|
+| `/auth` | register, login, refresh token, logout. **No self-service email password reset in v1** (see Section 5) |
+| `/users` | profile CRUD, role management (admin only), admin-triggered password reset |
+| `/departments`, `/categories`, `/facilities`, `/transport` | campus structure CRUD |
+| `/feedback` | submit feedback, list own/all feedback (paginated, filterable), get by id |
+| `/feedback-analysis` | internal only — triggered automatically in the background after feedback is submitted |
+| `/grievances` | submit, list (paginated, filterable), get by id, assign to staff, update status (per Section 7 rules), close/reopen |
+| `/sla` | manage SLA policies (admin), check SLA status per grievance |
+| `/notifications` | list notifications (paginated), mark as read |
+| `/analytics` | operational metrics, gap score, trends (admin/HOD only) |
+| `/audit-logs` | read-only, paginated, admin only |
+| `/data-imports` | upload → validate → preview → import, per Section 10 workflow |
+
+**Every endpoint must:**
+- Use Pydantic schemas to validate requests and shape responses
+- Enforce RBAC using a JWT-based auth dependency — reject requests from users without the right role
+- Follow the error format and pagination format defined in Section 14
+- Show up automatically in the Swagger/OpenAPI docs
+
+---
+
+## 14. API RESPONSE, PAGINATION & ERROR STANDARDS
+
+### 14.1 Standard error format
+Every error response across the whole API must follow this exact shape:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "GRIEVANCE_NOT_FOUND",
+    "message": "The requested grievance does not exist."
+  }
+}
+```
+
+### 14.2 Standard HTTP status codes to use
+| Code | Meaning |
+|---|---|
+| 400 | Bad Request / general validation error |
+| 401 | Unauthorized (not logged in / invalid token) |
+| 403 | Forbidden (logged in, but wrong role/permission) |
+| 404 | Not Found |
+| 409 | Conflict (e.g. an invalid grievance status transition) |
+| 422 | Validation Error (Pydantic schema failure) |
+| 500 | Internal Server Error |
+
+### 14.3 Standard pagination format
+Apply this to **every** list endpoint: `/feedback`, `/grievances`, `/users`, `/notifications`, `/audit-logs`.
+
+Request:
+```
+GET /grievances?page=1&page_size=20
+```
+
+Response:
+```json
+{
+  "items": [],
+  "page": 1,
+  "page_size": 20,
+  "total": 1250,
+  "total_pages": 63
+}
+```
+Never return an entire table's worth of rows in one unpaginated response.
+
+### 14.4 Search & filter requirements
+
+**Grievances** must support filtering by: `status`, `priority`, `department`, `category`, `assigned_staff`, `date range`, `SLA status`. Also support sorting by `created_at` and searching by `title`/`ticket_number`.
+
+**Feedback** must support filtering by: `category`, `sentiment`, `rating`, `date range`, `department`, `severity`.
+
+---
+
+## 15. FRONTEND UX REQUIREMENTS
+
+Every page in the app must handle all of the following — this is not optional polish, it's a baseline requirement:
+
+- **Loading state** — visible spinner/skeleton while data is fetching
+- **Empty state** — a clear message when there's no data yet (not a blank page)
+- **Error state** — a clear, user-friendly message if a request fails
+- **Success feedback** — confirmation (toast/banner) after a successful action
+- **Form validation** — inline validation messages, not just a failed submit
+- **Confirmation dialogs** — for destructive or important actions (e.g. closing a grievance, deactivating a department)
+- **Responsive layout** — usable on both desktop and smaller screens
+- **Pagination, search, filtering, sorting** — on every list/table view, matching Section 14.3–14.4
+
+Example — the Grievance list page specifically needs: search by title/ticket number, filter by status, filter by priority, filter by department, sort by created date, and pagination. This is what makes the app feel like a real product instead of a basic CRUD demo.
+
+---
+
+## 16. NON-FUNCTIONAL REQUIREMENTS
+
+- **Security:** JWT-based authentication (see Section 5 for token lifetimes), bcrypt password hashing, RBAC enforced on every endpoint, all input validated through Pydantic, sensitive actions written to `audit_logs`
+- **Performance:** Keep queries efficient with proper indexes on foreign keys and frequently filtered columns (e.g. `status`, `department_id`). No caching layer is used in v1 — do not add Redis or any other cache
+- **Reliability:** SLA breach checking and the `operational_metrics` aggregation both run as simple periodic functions inside the FastAPI app (no external scheduler required for local/dev)
+- **Observability:** Structured logging on the backend; every important write action also creates an audit log entry
+- **Testing:** Pytest coverage for authentication, the full grievance lifecycle (including transition rules from Section 7), SLA logic, and the NLP failure-handling path
+- **Local Setup:** The whole project (backend + frontend + PostgreSQL — nothing else) must run with a single `docker-compose up` command
+
+---
+
+## 17. DELIVERABLES EXPECTED FROM THE AI
+
+1. PostgreSQL schema as Alembic migration files (all 19 tables from Section 9)
+2. FastAPI backend with a clear structure (routers, models, schemas, services, dependencies)
+3. Authentication & RBAC fully implemented (Section 5)
+4. Feedback, Grievance, and SLA business logic (Sections 6–8)
+5. NLP analysis implemented using FastAPI `BackgroundTasks`, including the failure-handling path (Section 11)
+6. Data import module for all 5 supported types (Section 10)
+7. One React.js web app (plain JavaScript, Tailwind CSS) with role-based views for Student, Staff, and Admin, meeting the UX baseline in Section 15
+8. Firebase Web Push notifications integrated
+9. `operational_metrics` aggregation job populating all fields needed for the Power BI KPIs and Gap Score (Section 12)
+10. Dockerfiles for backend and frontend, plus one `docker-compose.yml` for local development (no Redis service)
+11. GitHub Actions workflow that runs lint and tests on every push
+12. A README explaining how to set up and run the project locally
+
+---
+
+## 18. DEFINITION OF DONE
+
+A feature is only considered **DONE** when every box below is true. Use this checklist for every module before moving to the next phase.
+
+- [ ] Database model exists (SQLAlchemy)
+- [ ] Alembic migration exists and runs cleanly
+- [ ] Pydantic schemas exist for request and response
+- [ ] API endpoint(s) exist and are documented in Swagger
+- [ ] RBAC is enforced on the endpoint
+- [ ] Errors follow the Section 14.1 format
+- [ ] List endpoints are paginated per Section 14.3
+- [ ] Frontend UI exists for the feature
+- [ ] Frontend has loading, empty, error, and success states (Section 15)
+- [ ] Form validation exists where user input is involved
+- [ ] Relevant Pytest tests exist and pass
+- [ ] The feature works end-to-end inside `docker-compose up`
+- [ ] No hardcoded secrets anywhere in the code (all via `.env`)
+
+---
+
+## 19. BUILD ORDER — DETAILED PHASES
+
+Complete and verify each phase (and its Definition of Done items, Section 18) before starting the next. After finishing a phase, briefly summarize what was built and confirm it runs correctly.
+
+### Phase 1 — Project Setup & Database Foundation
+- Create the repo structure: `/backend` (FastAPI) and `/frontend` (React, created with Vite, JavaScript template — not TypeScript)
+- Connect the backend to PostgreSQL using SQLAlchemy, configured through a `.env` file
+- Set up Alembic and create the initial migration covering all 19 tables from Section 9
+- Seed initial data: default roles (`student`, `staff`, `hod`, `admin`), a few sample departments, and SLA policies using the durations in Section 8.1
+- **Done when:** the backend starts, all tables exist in the database, and the seed script runs without errors
+
+### Phase 2 — Authentication & RBAC
+- Build register and login endpoints using JWT, with token lifetimes exactly as defined in Section 5
+- Hash passwords with bcrypt
+- Add reusable auth dependencies (`get_current_user`, `require_role(...)`) to protect routes by role
+- Build basic React login/register pages
+- **Done when:** a student account and an admin account can each register, log in, and are correctly restricted to their own role's permissions
+
+### Phase 3 — Campus Structure CRUD
+- Build CRUD APIs for `departments`, `categories`, `facilities`, `transport_routes`, `transport_stops`
+- Build admin-only pages in React to manage departments and categories
+- Add the Google Maps view for transport routes/stops
+- **Done when:** an admin can create, edit, and deactivate departments/categories from the UI, and transport stops display correctly on the map
+
+### Phase 4 — Student & Staff Profile Management
+- Build CRUD for `students` (including `student_id`, `roll_number`, `program`, `course_name`, `semester`, `department_id`) and `staff` (`employee_id`, `designation`, `department_id`)
+- Build a student profile page where students can view/edit their own details
+- Build an admin page to view/manage all students and staff
+- **Done when:** a student's profile correctly displays their student ID and course name
+
+### Phase 5 — Feedback Module + NLP
+- Build the feedback submission API (students only) with category selection, rating, and an optional anonymous flag
+- Implement the NLP analysis function (Section 11) triggered via `BackgroundTasks`, including the failure-handling path
+- Build a "My Feedback" page for students and a paginated/filterable feedback list (with sentiment shown) for Admin/HOD
+- **Done when:** submitting feedback always succeeds immediately, and a sentiment/keyword result (or a clearly marked failure) appears within a few seconds
+
+### Phase 6 — Grievance Module + SLA Engine
+- Build the grievance submission API — auto-generate a `ticket_number` and auto-assign the department based on category
+- Create the matching `sla_events` row on grievance creation, using `sla_policies` and the rules in Section 8
+- Build the status update API enforcing the exact transition rules in Section 7
+- Add a simple periodic check (using `BackgroundTasks` — no Celery) that flags SLA warnings and breaches and sends the notifications defined in Section 8.2
+- Build the student's paginated/filterable grievance list + tracking page, and the staff's "My Assigned Grievances" page with status-update actions
+- **Done when:** the full grievance lifecycle works end-to-end exactly per Sections 7 and 8, with SLA status/countdown visible
+
+### Phase 7 — Notifications & Audit Logging
+- Trigger notifications on key events: grievance assigned, status changed, SLA warning, SLA breach, feedback acknowledged
+- Integrate Firebase Web Push for real-time browser notifications
+- Build a paginated in-app notification list/bell icon in React, showing read/unread state
+- Automatically write audit log entries whenever a sensitive record (grievances, users, roles) is created, updated, or deleted
+- **Done when:** a user receives both an in-app and a push notification the moment their grievance status changes
+
+### Phase 8 — Analytics & Power BI Integration
+- Build the daily aggregation job that fills `operational_metrics` per department/category, including the exact Gap Score formula from Section 12.3
+- Build analytics API endpoints for Admin/HOD (trends, recurring issues, department comparisons) covering the KPIs listed in Section 12.2
+- Build a lightweight admin analytics summary page in React (Recharts is fine), and document how Power BI connects directly to PostgreSQL's `operational_metrics` table for the deep-dive dashboards
+- **Done when:** `operational_metrics` is correctly and reliably populated with real numbers, and the admin summary page + Power BI can both read meaningful KPIs from it
+
+### Phase 9 — Data Import Module
+- Build the 5 supported import types (Attendance, Exam Schedule, Facility Usage, Feedback, Transport) following the exact workflow in Section 10
+- Build the admin UI: upload → preview with validation results → confirm import → view import report
+- **Done when:** uploading a file with some invalid rows still successfully imports the valid rows and produces an accurate error report for the rejected ones
+
+### Phase 10 — Polish, Docker & CI/CD
+- Write a Dockerfile for the backend, a Dockerfile for the frontend, and one `docker-compose.yml` that runs backend + frontend + PostgreSQL only (no Redis, no other services)
+- Set up a GitHub Actions workflow that runs Pytest on the backend and lint/build on the frontend for every push/PR
+- Go through Section 15's UX checklist on every page and fix any gaps
+- **Done when:** running `docker-compose up` starts the entire app locally, end to end
+
+### Phase 11 — Testing & Final Handover
+- Write Pytest tests covering: the auth flow, the full grievance lifecycle and transition rules (Section 7), SLA breach/reopen logic (Section 8), the NLP failure-handling path (Section 11.4), and RBAC enforcement
+- Go through the Definition of Done checklist (Section 18) for every module and confirm each box is checked
+- Write a final README covering: setup steps, required environment variables, how to run migrations, how to run tests, and an explanation of the project's folder structure
+- **Done when:** cloning the repo fresh, setting up `.env`, and running `docker-compose up` gets the whole project running, with all tests passing
+
+---
+
+## 19.1 CONTINUITY RULE — MANDATORY USE OF `PROGRESS_LOG.md`
+
+This project is built **one phase at a time, across many separate sessions**. To make sure no phase ever breaks continuity with the one before it, a companion file called **`PROGRESS_LOG.md`** must be used alongside this document, with these non-negotiable rules:
+
+1. **Before starting any phase**, the AI must first read `PROGRESS_LOG.md` in full — especially the "Global Decisions & Conventions" section and the entry for the immediately previous phase — so the new phase's code matches what already exists exactly (same folder structure, same naming, same env variable names, same response shapes, etc.).
+2. **A new phase must never be started** if the previous phase's entry in `PROGRESS_LOG.md` is not marked `✅ Completed`.
+3. **After finishing a phase**, the AI must fill in that phase's section in `PROGRESS_LOG.md` completely — what was built, exact file paths, models/endpoints/components added, key decisions made, new environment variables introduced, and — most importantly — a short "What the next phase needs to know" note.
+4. **Any deviation** from the master prompt (this document) made during a phase — for a good reason discovered mid-build — must be written into the "Deviations From Master Prompt" section of `PROGRESS_LOG.md`, so later phases don't contradict it.
+5. This document (the master prompt) defines **what** to build and the fixed rules. `PROGRESS_LOG.md` tracks **what has actually been built so far** and **exact implementation details** (file paths, function names, table/column names as actually created, etc.), so the two together always give the full, current picture with no gaps.
+
+---
+
+## 20. INSTRUCTIONS TO THE AI (copy this block as the actual prompt)
+
+> You are building the KRMU Campus Intelligence Platform — a web-only application with no mobile app. The architecture is frozen per Section 0: React.js (plain JavaScript/JSX, never TypeScript) + Tailwind CSS on the frontend, FastAPI + PostgreSQL + SQLAlchemy + Alembic on the backend. **Redis is not part of this project — do not install, import, or reference it anywhere.** Do not use Celery or RQ; use FastAPI's built-in `BackgroundTasks` for all background work (NLP analysis, SLA checks, notifications, metrics aggregation). Follow the database schema in Section 9 exactly — it is the single source of truth. Follow the grievance transition rules in Section 7, the SLA behavior in Section 8, the NLP failure-handling path in Section 11.4, and the exact Gap Score formula in Section 12.3 — do not invent your own versions of any of these. Every API must follow the error format and pagination format in Section 14, and every frontend page must meet the UX baseline in Section 15. **Before starting any work, read `PROGRESS_LOG.md` in full to see what has already been built and how — never start a new phase unless the previous phase's entry there is marked Completed.** Follow the Build Order in Section 19 phase by phase, checking the Definition of Done (Section 18) before moving to the next phase. After finishing each phase, summarize what was built, confirm it runs correctly, and **update `PROGRESS_LOG.md` for that phase before ending the session** — this is required, not optional. Only ask clarifying questions if something is genuinely missing from this document. Deployment is handled separately by me — focus on a clean local setup using Docker Compose with clear run instructions. Write clean, well-commented, production-quality code, with proper error handling and RBAC enforcement on every single endpoint.
+
+---
+
+*Generated from the ER Diagram (KRMU Campus Intelligence Platform — Backend Database), architecture notes, tech stack table, and a detailed review pass provided by the user.*
