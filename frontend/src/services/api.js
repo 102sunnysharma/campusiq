@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8000';
+// Using relative URLs — Vite dev proxy forwards these to http://localhost:8000
+// In production, configure your reverse proxy (nginx/etc.) to forward /auth, /users, etc.
+const API_BASE_URL = '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -32,7 +34,7 @@ api.interceptors.response.use(
 
       if (refreshToken) {
         try {
-          const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          const res = await axios.post('/auth/refresh', {
             refresh_token: refreshToken,
           });
 

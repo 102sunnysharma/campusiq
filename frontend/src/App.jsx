@@ -7,6 +7,8 @@ import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { CampusManagement } from './pages/CampusManagement';
 import { TransportMap } from './pages/TransportMap';
+import { StudentProfile } from './pages/StudentProfile';
+import { ProfilesManagement } from './pages/ProfilesManagement';
 
 export default function App() {
   return (
@@ -20,6 +22,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <StudentProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/directory"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'hod', 'staff']}>
+                <ProfilesManagement />
               </ProtectedRoute>
             }
           />

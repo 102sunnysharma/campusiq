@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users } from 'lucide-react';
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
@@ -34,7 +34,7 @@ export const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Navigation Links */}
-          <div className="flex items-center space-x-8">
+          <div className="flex items-center space-x-6">
             <Link to="/dashboard" className="flex items-center space-x-3 group">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform duration-200">
                 <GraduationCap className="w-6 h-6 text-white" />
@@ -62,6 +62,34 @@ export const Navbar = () => {
                   <LayoutDashboard className="w-4 h-4" />
                   <span>Dashboard</span>
                 </Link>
+
+                {user.role?.name === 'student' && (
+                  <Link
+                    to="/profile"
+                    className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      isActive('/profile')
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <UserCheck className="w-4 h-4" />
+                    <span>My Profile</span>
+                  </Link>
+                )}
+
+                {(user.role?.name === 'admin' || user.role?.name === 'hod' || user.role?.name === 'staff') && (
+                  <Link
+                    to="/directory"
+                    className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      isActive('/directory')
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>Profiles Directory</span>
+                  </Link>
+                )}
 
                 <Link
                   to="/campus"
