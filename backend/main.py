@@ -6,7 +6,7 @@ from sqlalchemy import text
 from app.config import settings
 from app.database import get_db
 from app.core.exceptions import http_exception_handler, validation_exception_handler
-from app.routers import auth, users, departments, categories, facilities, transport, students, staff
+from app.routers import auth, users, departments, categories, facilities, transport, students, staff, feedback
 
 app = FastAPI(
     title="KRMU Campus Intelligence Platform API",
@@ -38,6 +38,7 @@ app.include_router(facilities.router)
 app.include_router(transport.router)
 app.include_router(students.router)
 app.include_router(staff.router)
+app.include_router(feedback.router)
 
 @app.get("/")
 def root():

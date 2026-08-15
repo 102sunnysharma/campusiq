@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users, MessageSquare } from 'lucide-react';
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
@@ -64,31 +64,59 @@ export const Navbar = () => {
                 </Link>
 
                 {user.role?.name === 'student' && (
-                  <Link
-                    to="/profile"
-                    className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                      isActive('/profile')
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <UserCheck className="w-4 h-4" />
-                    <span>My Profile</span>
-                  </Link>
+                  <>
+                    <Link
+                      to="/profile"
+                      className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive('/profile')
+                          ? 'bg-indigo-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <UserCheck className="w-4 h-4" />
+                      <span>My Profile</span>
+                    </Link>
+                    <Link
+                      to="/feedback"
+                      className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive('/feedback')
+                          ? 'bg-indigo-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>My Feedback</span>
+                    </Link>
+                  </>
                 )}
 
                 {(user.role?.name === 'admin' || user.role?.name === 'hod' || user.role?.name === 'staff') && (
-                  <Link
-                    to="/directory"
-                    className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                      isActive('/directory')
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                    }`}
-                  >
-                    <Users className="w-4 h-4" />
-                    <span>Profiles Directory</span>
-                  </Link>
+                  <>
+                    <Link
+                      to="/directory"
+                      className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive('/directory')
+                          ? 'bg-indigo-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
+                      <span>Profiles Directory</span>
+                    </Link>
+                    {(user.role?.name === 'admin' || user.role?.name === 'hod') && (
+                      <Link
+                        to="/feedback"
+                        className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                          isActive('/feedback')
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                        <span>Feedback</span>
+                      </Link>
+                    )}
+                  </>
                 )}
 
                 <Link
