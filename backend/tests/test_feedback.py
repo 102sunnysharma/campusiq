@@ -88,8 +88,8 @@ def test_nlp_failure_does_not_break_submission():
     headers = get_student_headers()
     category_id = get_any_active_category_id(headers)
 
-    # Patch the background function to raise an error
-    with patch("app.routers.feedback.analyze_feedback_background", side_effect=RuntimeError("Simulated NLP crash")):
+    # Patch the NLP analysis function to raise an error
+    with patch("app.services.nlp_service.run_nlp_analysis", side_effect=RuntimeError("Simulated NLP crash")):
         payload = {
             "category_id": category_id,
             "content": "This is a test of the NLP failure handling path per Section 11.4.",

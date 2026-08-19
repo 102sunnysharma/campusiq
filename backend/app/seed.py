@@ -225,7 +225,11 @@ def seed_data():
 
         for u_data in default_users:
             existing_user = db.query(User).filter(User.email == u_data["email"]).first()
-            if not existing_user:
+            if existing_user:
+                existing_user.password_hash = hash_password(u_data["password"])
+                existing_user.is_active = True
+                existing_user.is_verified = True
+            else:
                 role_obj = roles_dict[u_data["role_name"]]
                 user = User(
                     email=u_data["email"],

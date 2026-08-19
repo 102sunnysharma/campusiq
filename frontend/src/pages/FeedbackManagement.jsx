@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
-import axios from 'axios';
+import api from '../services/api';
 import {
   BarChart3, Search, SlidersHorizontal, Star, TrendingUp, TrendingDown,
   Minus, AlertCircle, RefreshCw, ChevronLeft, ChevronRight,
@@ -9,8 +8,6 @@ import {
   InboxIcon, CheckCircle2, XCircle, Clock, Filter, ChevronDown, ChevronUp,
   Sparkles, MessageSquare
 } from 'lucide-react';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -219,8 +216,6 @@ function StatPill({ label, value, color = 'text-white' }) {
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export function FeedbackManagement() {
-  const { token } = useAuth();
-
   // Filters
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({
@@ -249,13 +244,13 @@ export function FeedbackManagement() {
   const fetchDependencies = useCallback(async () => {
     try {
       const [catRes, deptRes] = await Promise.all([
-        axios.get(`${API}/categories?page=1&page_size=200`, { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get(`${API}/departments?page=1&page_size=100`, { headers: { Authorization: `Bearer ${token}` } }),
+        api.get('/categories?page=1&page_size=200'),
+        api.get('/departments?page=1&page_size=100'),
       ]);
       setCategories(catRes.data.items || []);
       setDepartments(deptRes.data.items || []);
     } catch { /* non-fatal */ }
-  }, [token]);
+  }, []);
 
   const fetchFeedbacks = useCallback(async (p = 1) => {
     setLoading(true);
@@ -265,9 +260,7 @@ export function FeedbackManagement() {
       if (search) params.set('search', search);
       Object.entries(filters).forEach(([k, v]) => { if (v) params.set(k, v); });
 
-      const res = await axios.get(`${API}/feedback?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get(`/feedback?${params.toString()}`);
       const items = res.data.items || [];
       setFeedbacks(items);
       setTotal(res.data.total || 0);
@@ -284,7 +277,7 @@ export function FeedbackManagement() {
     } finally {
       setLoading(false);
     }
-  }, [token, search, filters]);
+  }, [search, filters]);
 
   useEffect(() => { fetchDependencies(); }, [fetchDependencies]);
   useEffect(() => { fetchFeedbacks(page); }, [fetchFeedbacks, page]);

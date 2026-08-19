@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
-import axios from 'axios';
+import api from '../services/api';
 import {
   MessageSquarePlus, Star, Send, RefreshCw, AlertCircle,
   CheckCircle2, Clock, XCircle, ChevronLeft, ChevronRight,
   Tag, Eye, EyeOff, TrendingUp, TrendingDown, Minus,
   Loader2, InboxIcon, Sparkles, Hash, BarChart3
 } from 'lucide-react';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -188,7 +185,6 @@ function FeedbackCard({ fb }) {
 // ─── Submission Form ───────────────────────────────────────────────────────────
 
 function FeedbackForm({ categories, onSuccess }) {
-  const { token } = useAuth();
   const [form, setForm] = useState({ category_id: '', content: '', rating: 0, is_anonymous: false });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -211,9 +207,7 @@ function FeedbackForm({ categories, onSuccess }) {
     setErrors({});
     setSubmitting(true);
     try {
-      await axios.post(`${API}/feedback`, form, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.post('/feedback', form);
       setToast({ type: 'success', msg: 'Feedback submitted! Analysis will appear shortly.' });
       setForm({ category_id: '', content: '', rating: 0, is_anonymous: false });
       onSuccess();
@@ -359,8 +353,6 @@ function FeedbackForm({ categories, onSuccess }) {
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export function MyFeedback() {
-  const { token } = useAuth();
-
   // Categories
   const [categories, setCategories] = useState([]);
 
@@ -378,22 +370,18 @@ export function MyFeedback() {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/categories?page=1&page_size=100`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get('/categories?page=1&page_size=100');
       setCategories(res.data.items || []);
     } catch {
       // non-fatal
     }
-  }, [token]);
+  }, []);
 
   const fetchFeedbacks = useCallback(async (p = 1) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`${API}/feedback/mine?page=${p}&page_size=${PAGE_SIZE}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await api.get(`/feedback/mine?page=${p}&page_size=${PAGE_SIZE}`);
       setFeedbacks(res.data.items || []);
       setTotal(res.data.total || 0);
       setTotalPages(res.data.total_pages || 1);
@@ -402,7 +390,7 @@ export function MyFeedback() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     fetchCategories();

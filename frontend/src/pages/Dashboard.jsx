@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/Navbar';
 import api from '../services/api';
@@ -9,6 +10,7 @@ import {
 
 export const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Admin user list state
   const [usersList, setUsersList] = useState([]);
@@ -148,7 +150,10 @@ export const Dashboard = () => {
                 <p className="text-slate-400 text-xs mb-4">
                   Share your experiences with campus facilities, faculty, or transport. NLP sentiment analysis will process it automatically.
                 </p>
-                <button className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition-colors">
+                <button
+                  onClick={() => navigate('/feedback')}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                >
                   Submit Feedback →
                 </button>
               </div>
