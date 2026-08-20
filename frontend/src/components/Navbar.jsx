@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users, MessageSquare } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users, MessageSquare, AlertTriangle } from 'lucide-react';
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
@@ -87,6 +87,17 @@ export const Navbar = () => {
                       <MessageSquare className="w-4 h-4" />
                       <span>My Feedback</span>
                     </Link>
+                    <Link
+                      to="/grievances"
+                      className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive('/grievances')
+                          ? 'bg-indigo-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>My Grievances</span>
+                    </Link>
                   </>
                 )}
 
@@ -102,6 +113,17 @@ export const Navbar = () => {
                     >
                       <Users className="w-4 h-4" />
                       <span>Profiles Directory</span>
+                    </Link>
+                    <Link
+                      to="/grievances"
+                      className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        isActive('/grievances')
+                          ? 'bg-indigo-600 text-white shadow-md'
+                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      }`}
+                    >
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>Grievances</span>
                     </Link>
                     {(user.role?.name === 'admin' || user.role?.name === 'hod') && (
                       <Link

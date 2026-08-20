@@ -27,11 +27,36 @@ export const Dashboard = () => {
   const [resetMessage, setResetMessage] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
 
+  // Staff grievance metrics state
+  const [staffMetrics, setStaffMetrics] = useState({ assigned: 0, onTrack: 0, warning: 0, resolved: 0, items: [] });
+  const [loadingStaffGrievances, setLoadingStaffGrievances] = useState(false);
+
   useEffect(() => {
     if (user && user.role.name === 'admin') {
       fetchUsers();
     }
+    if (user && (user.role.name === 'staff' || user.role.name === 'hod')) {
+      fetchStaffGrievances();
+    }
   }, [user, page, roleFilter, searchQuery]);
+
+  const fetchStaffGrievances = async () => {
+    setLoadingStaffGrievances(true);
+    try {
+      const endpoint = user.role.name === 'staff' ? '/grievances/assigned' : '/grievances?page_size=5';
+      const res = await api.get(endpoint);
+      const items = res.data.items || [];
+      const assigned = items.filter((g) => g.status === 'open' || g.status === 'in_progress' || g.status === 'reopened').length;
+      const onTrack = items.filter((g) => g.current_sla?.status === 'on_track').length;
+      const warning = items.filter((g) => g.current_sla?.status === 'warning' || g.current_sla?.status === 'breached').length;
+      const resolved = items.filter((g) => g.status === 'resolved' || g.status === 'closed').length;
+      setStaffMetrics({ assigned, onTrack, warning, resolved, items });
+    } catch (err) {
+      console.warn('Failed to fetch staff grievance queue:', err);
+    } finally {
+      setLoadingStaffGrievances(false);
+    }
+  };
 
   const fetchUsers = async () => {
     setLoadingUsers(true);
@@ -167,7 +192,10 @@ export const Dashboard = () => {
                 <p className="text-slate-400 text-xs mb-4">
                   Raise an urgent or standard complaint. SLA policies guarantee resolution deadlines with automatic HOD escalation.
                 </p>
-                <button className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition-colors">
+                <button
+                  onClick={() => navigate('/grievances')}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                >
                   Raise Grievance →
                 </button>
               </div>
@@ -180,35 +208,74 @@ export const Dashboard = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
-                <div className="text-slate-400 text-xs font-semibold uppercase mb-1">Assigned Grievances</div>
-                <div className="text-3xl font-extrabold text-sky-400">0</div>
-                <div className="text-[11px] text-slate-500 mt-2">Active tickets needing resolution</div>
+                <div className="text-slate-400 text-xs font-semibold uppercase mb-1">Active Tickets</div>
+                <div className="text-3xl font-extrabold text-sky-400">{staffMetrics.assigned}</div>
+                <div className="text-[11px] text-slate-500 mt-2">Open / in progress tickets</div>
               </div>
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
                 <div className="text-slate-400 text-xs font-semibold uppercase mb-1">SLA On Track</div>
-                <div className="text-3xl font-extrabold text-emerald-400">0</div>
+                <div className="text-3xl font-extrabold text-emerald-400">{staffMetrics.onTrack}</div>
                 <div className="text-[11px] text-slate-500 mt-2">Within deadline duration</div>
               </div>
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
-                <div className="text-slate-400 text-xs font-semibold uppercase mb-1">SLA Warnings</div>
-                <div className="text-3xl font-extrabold text-amber-400">0</div>
-                <div className="text-[11px] text-slate-500 mt-2">80% duration elapsed</div>
+                <div className="text-slate-400 text-xs font-semibold uppercase mb-1">SLA Warnings / Breached</div>
+                <div className="text-3xl font-extrabold text-amber-400">{staffMetrics.warning}</div>
+                <div className="text-[11px] text-slate-500 mt-2">Urgent attention needed</div>
               </div>
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-lg">
                 <div className="text-slate-400 text-xs font-semibold uppercase mb-1">Resolved Tickets</div>
-                <div className="text-3xl font-extrabold text-purple-400">0</div>
-                <div className="text-[11px] text-slate-500 mt-2">Successfully closed</div>
+                <div className="text-3xl font-extrabold text-purple-400">{staffMetrics.resolved}</div>
+                <div className="text-[11px] text-slate-500 mt-2">Successfully closed / resolved</div>
               </div>
             </div>
 
             <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6">
-              <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-sky-400" />
-                <span>My Assigned Work Queue (Phase 6 Integration)</span>
-              </h3>
-              <div className="p-8 text-center bg-slate-950/60 rounded-xl border border-dashed border-slate-800 text-slate-400 text-sm">
-                No active grievances assigned currently. New tickets assigned to your department will appear here.
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-100 flex items-center space-x-2">
+                  <Clock className="w-5 h-5 text-sky-400" />
+                  <span>My Assigned Work Queue</span>
+                </h3>
+                <button
+                  onClick={() => navigate('/grievances')}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold"
+                >
+                  View Full Grievance Center →
+                </button>
               </div>
+
+              {loadingStaffGrievances ? (
+                <div className="p-8 text-center text-slate-400 flex items-center justify-center space-x-2">
+                  <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                  <span>Loading queue...</span>
+                </div>
+              ) : staffMetrics.items.length === 0 ? (
+                <div className="p-8 text-center bg-slate-950/60 rounded-xl border border-dashed border-slate-800 text-slate-400 text-sm">
+                  No active grievances assigned currently. New tickets will appear here.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {staffMetrics.items.slice(0, 5).map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => navigate('/grievances')}
+                      className="p-3.5 bg-slate-950/60 hover:bg-slate-950 border border-slate-800/80 hover:border-indigo-500/30 rounded-xl flex items-center justify-between cursor-pointer transition-colors"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono text-xs font-bold text-indigo-300">{item.ticket_number}</span>
+                          <span className="text-xs font-semibold text-slate-200">{item.title}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400">{item.category?.name} • {item.student?.user_full_name}</div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-slate-800 text-slate-300">
+                          {item.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

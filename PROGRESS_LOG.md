@@ -232,4 +232,67 @@ This document tracks implementation progress phase by phase as required by Secti
 ### What Phase 6 Needs to Know
 - All categories are available with `department_id` linkage.
 - The `feedback` and `feedback_analysis` tables are operational.
-- Phase 6 will build the Grievances Module & SLA Engine (`POST /grievances` with auto ticket numbering, SLA event lifecycle, transition rules per Section 7, and staff assignment).
+- Phase 6 builds the Grievances Module & SLA Engine (`POST /grievances` with auto ticket numbering, SLA event lifecycle, transition rules per Section 7, and staff assignment).
+
+---
+
+## Phase 6 — Grievance Module + SLA Engine
+
+- **Status**: ✅ Completed
+- **Completed At**: 2026-08-21
+
+### What Was Built
+1. **SLA Calculation & Lifecycle Engine (`app/services/sla_service.py`)**:
+   - `create_sla_event`: Queries active `SLAPolicy` for the ticket priority, computes `started_at`, `warning_at` (at `warning_percentage` default 80%), and `deadline_at`, initiating an active SLA cycle.
+   - `complete_sla_event`: Halts and marks the current SLA cycle as `completed` upon ticket resolution.
+   - `reopen_sla_event`: Spawns a brand-new `SLAEvent` cycle when a student rejects a resolution (Section 8.3), preserving the previous SLA event for audit trail integrity.
+   - `calculate_sla_metrics`: Computes real-time elapsed percentage, countdown minutes remaining, and live status (`on_track`, `warning`, `breached`, `completed`).
+   - `scan_and_update_sla_breaches`: Periodic or on-demand scan flagging warnings (80% elapsed) and breaches past `deadline_at` with timestamps.
+
+2. **Grievance Pydantic Schemas (`app/schemas/grievance.py`, `app/schemas/sla.py`)**:
+   - `GrievanceCreate`, `GrievanceStatusUpdate`, `GrievanceAssign`, `GrievancePriorityUpdate`.
+   - `GrievanceResponse`, `GrievanceListResponse` (Section 14.3 format), `GrievanceUpdateResponse`.
+   - `SLAPolicyResponse`, `SLAPolicyUpdate`, `SLAEventResponse`.
+
+3. **Grievance & SLA REST API Routers (`app/routers/grievances.py`, `app/routers/sla.py`)**:
+   - `POST /grievances`: Student submission; auto-generates human-readable `GRV-YYYYMMDD-XXXX` ticket number, maps department from category, initiates SLA clock, and logs initial update.
+   - `GET /grievances/mine`: Student paginated history with live SLA progress.
+   - `GET /grievances/assigned`: Staff member's assigned ticket queue.
+   - `GET /grievances`: Admin & HOD paginated, filterable directory with HOD department scoping.
+   - `GET /grievances/{id}`: Detailed view with update history and SLA countdown.
+   - `PATCH /grievances/{id}/status`: Enforces Section 7 exact state transition matrix with `409 Conflict` rejections on invalid transitions (`open` -> `in_progress` -> `resolved` -> `closed` or `reopened`).
+   - `PATCH /grievances/{id}/assign`: Admin/HOD staff assignment.
+   - `GET/PUT /sla/policies` & `POST /sla/check-breaches`: SLA policies management and breach scan.
+
+4. **React Frontend Grievance Management Module**:
+   - `src/pages/MyGrievances.jsx`: Student grievance filing modal (category picker, priority selector with SLA duration cards, description validation), live grievance cards with ticket pills and SLA countdown, and detailed history modal with **Resolution Review Banner** ("Accept & Close" / "Reject & Reopen").
+   - `src/pages/GrievanceManagement.jsx`: Staff, HOD, and Admin operational queue with 6 KPI cards (*Total, Open, In Progress, SLA Warning, SLA Breached, Resolved*), multi-filter toolbar, and inline action modals (Start Work, Resolve with remarks, Assign Staff, View Detail Timeline).
+   - Dynamic routing in `App.jsx` (`/grievances` maps role-based to `MyGrievances` or `GrievanceManagement`).
+   - Updated `Navbar.jsx` with active "My Grievances" / "Grievances" links across roles.
+   - Connected `Dashboard.jsx` student "Report a Grievance" card and staff live assigned work queue.
+   - Updated Vite proxy in `vite.config.js` for `/grievances` and `/sla`.
+
+5. **Testing & Verification**:
+   - `backend/tests/test_grievances.py`: 7 pytest tests covering submission, full lifecycle (`open` -> `in_progress` -> `resolved` -> `closed`), reopening SLA cycle generation, invalid transitions rejection (`409 Conflict`), staff assignment, SLA breach scanning, and student isolation.
+   - Total backend test suite: **35/35 tests passing (`100%`)**.
+   - Frontend Vite build: **built cleanly in 6.02s**.
+
+### Exact File Paths Created / Modified
+- `backend/app/services/sla_service.py` [NEW]
+- `backend/app/schemas/sla.py` [NEW]
+- `backend/app/schemas/grievance.py` [NEW]
+- `backend/app/routers/sla.py` [NEW]
+- `backend/app/routers/grievances.py` [NEW]
+- `backend/main.py`
+- `backend/tests/test_grievances.py` [NEW]
+- `frontend/src/pages/MyGrievances.jsx` [NEW]
+- `frontend/src/pages/GrievanceManagement.jsx` [NEW]
+- `frontend/src/App.jsx`
+- `frontend/src/components/Navbar.jsx`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/vite.config.js`
+- `PROGRESS_LOG.md`
+
+### What Phase 7 Needs to Know
+- The grievance lifecycle and SLA events tables (`grievances`, `grievance_updates`, `sla_policies`, `sla_events`) are live and operational.
+- Phase 7 will build the Notification Engine & In-App Notification System (Table 13 `notifications`, notification triggers on grievance status change, SLA warnings/breaches, and feedback analysis).

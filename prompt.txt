@@ -876,3 +876,220 @@ This project is built **one phase at a time, across many separate sessions**. To
 ---
 
 *Generated from the ER Diagram (KRMU Campus Intelligence Platform — Backend Database), architecture notes, tech stack table, and a detailed review pass provided by the user.*
+
+
+
+
+
+
+**  PROGRESS_LOG FILE  **
+
+
+
+# KRMU Campus Intelligence Platform — Build Progress Log
+
+> **This file works together with `KRMU_Campus_Intelligence_Platform_AI_Build_Prompt.md`.**
+> The master prompt defines *what* to build and the fixed rules. This file tracks *what has actually been built so far*, exactly how, and what the next phase needs to know — so no phase ever starts disconnected from the one before it.
+
+---
+
+## 📌 RULES FOR THE AI (read this every single time, before writing any code)
+
+1. Read this entire file first — especially **Global Decisions & Conventions** and the most recently completed phase's entry — before starting or resuming any work.
+2. Do **not** start a new phase unless the previous phase's status below is `✅ Completed`.
+3. Once a phase is finished, fill in its section completely — do not leave it blank or say "see code." Be specific: exact file paths, exact model/endpoint/component names.
+4. If you had to deviate from the master prompt for a good reason, write it in **Deviations From Master Prompt** immediately — don't let a later phase contradict it.
+5. Keep this file itself in plain, factual language — it's a log, not marketing copy.
+
+---
+
+## 🧭 PROJECT SNAPSHOT (update this block every time you finish a session)
+
+| | |
+|---|---|
+| **Current phase in progress** | _(e.g. "Phase 3 — not started yet")_ |
+| **Last completed phase** | _(e.g. "Phase 2 — Authentication & RBAC")_ |
+| **Backend runs locally?** | Yes / No |
+| **Frontend runs locally?** | Yes / No |
+| **`docker-compose up` works?** | Yes / No |
+| **Tests passing?** | Yes / No / Not written yet |
+| **Last updated on** | _(date)_ |
+
+---
+
+## 🌐 GLOBAL DECISIONS & CONVENTIONS (append-only — never delete or rewrite old entries, only add new ones)
+
+Record here anything that must stay **consistent across every phase** so later phases don't accidentally diverge. Examples of what belongs here: exact folder structure, naming conventions, env variable names, how JWT payload is structured, how timestamps are formatted in API responses, how UUIDs are generated, exact package versions pinned, etc.
+
+| Decision | Value / Convention | Set in Phase |
+|---|---|---|
+| _(example)_ Backend folder structure | `backend/app/{models,schemas,routers,services,core}` | 1 |
+| _(example)_ `.env` variable for DB URL | `DATABASE_URL` | 1 |
+| | | |
+
+---
+
+## ⚠️ DEVIATIONS FROM MASTER PROMPT
+
+If anything built differs from `KRMU_Campus_Intelligence_Platform_AI_Build_Prompt.md`, log it here with the reason. If this section is empty, everything built so far matches the master prompt exactly.
+
+_(none yet)_
+
+---
+
+## 📋 PHASE LOG
+
+---
+
+### Phase 1 — Project Setup & Database Foundation
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 2 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 2 — Authentication & RBAC
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 3 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 3 — Campus Structure CRUD
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 4 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 4 — Student & Staff Profile Management
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 5 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 5 — Feedback Module + NLP
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 6 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 6 — Grievance Module + SLA Engine
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 7 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 7 — Notifications & Audit Logging
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 8 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 8 — Analytics & Power BI Integration
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 9 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 9 — Data Import Module
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 10 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 10 — Polish, Docker & CI/CD
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **New environment variables introduced:**
+- **How to verify it works:**
+- **What Phase 11 needs to know:**
+- **Known issues / TODO:**
+
+---
+
+### Phase 11 — Testing & Final Handover
+**Status:** ⬜ Not Started
+
+- **What was built:**
+- **Files/folders created:**
+- **Key decisions made:**
+- **How to verify it works:**
+- **Known issues / TODO:**
+
+---
+
+## ✅ STATUS LEGEND
+- ⬜ Not Started
+- 🟨 In Progress
+- ✅ Completed
+
+
+
+
+
+
+
