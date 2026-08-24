@@ -1,5 +1,5 @@
 """
-Grievance Router — Phase 6 (Section 6.2, 7, 8, 14)
+Grievance Router — Phase 6 (Section 6.2, 7, 8, 14) + Phase 7 Notifications & Audit
 
 Endpoints:
   POST   /grievances              — Student: submit grievance (auto-assigns department & starts SLA)
@@ -17,7 +17,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, status, Query
+from fastapi import APIRouter, Depends, status, Query, Request
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, and_, or_
 
@@ -52,6 +52,16 @@ from app.services.sla_service import (
     complete_sla_event,
     reopen_sla_event,
     calculate_sla_metrics,
+)
+from app.services.notification_service import (
+    notify_grievance_submitted,
+    notify_grievance_assigned,
+    notify_grievance_status_changed,
+)
+from app.services.audit_service import (
+    audit_grievance_created,
+    audit_grievance_status_updated,
+    audit_grievance_assigned,
 )
 
 logger = logging.getLogger(__name__)
@@ -287,6 +297,11 @@ def submit_grievance(
         .filter(Grievance.id == grievance_id)
         .first()
     )
+
+    # Phase 7: notify student + audit trail
+    notify_grievance_submitted(db, grievance)
+    audit_grievance_created(db, grievance, actor_id=current_user.id)
+    db.commit()
 
     logger.info(f"Grievance {ticket_number} created by student {student.id}")
     return _build_grievance_response(grievance)
@@ -755,6 +770,18 @@ def update_grievance_status(
         .first()
     )
 
+    # Phase 7: fire notification + audit
+    actor_name = current_user.full_name or current_user.email
+    notify_grievance_status_changed(db, grievance, old_status, new_status, actor_name)
+    audit_grievance_status_updated(
+        db, grievance,
+        old_status=old_status,
+        new_status=new_status,
+        actor_id=current_user.id,
+        comment=payload.comment,
+    )
+    db.commit()
+
     logger.info(f"Grievance {grievance.ticket_number} transitioned {old_status} -> {new_status} by {current_user.email}")
     return _build_grievance_response(grievance)
 
@@ -846,6 +873,16 @@ def assign_grievance_staff(
         .filter(Grievance.id == gid)
         .first()
     )
+
+    # Phase 7: notify assigned staff + audit
+    notify_grievance_assigned(db, grievance)
+    audit_grievance_assigned(
+        db, grievance,
+        old_staff_id=old_staff_id,
+        new_staff_id=staff.id,
+        actor_id=current_user.id,
+    )
+    db.commit()
 
     logger.info(f"Grievance {grievance.ticket_number} assigned to {staff_name} by {current_user.email}")
     return _build_grievance_response(grievance)

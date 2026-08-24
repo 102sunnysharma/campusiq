@@ -183,10 +183,16 @@ def scan_and_update_sla_breaches(db: Session) -> Dict[str, int]:
                 event.status = "breached"
                 event.breached_at = now
                 breaches_count += 1
+                if event.grievance:
+                    from app.services.notification_service import notify_sla_breach
+                    notify_sla_breach(db, event.grievance, event)
         elif now >= warning:
             if event.status == "on_track":
                 event.status = "warning"
                 warnings_count += 1
+                if event.grievance:
+                    from app.services.notification_service import notify_sla_warning
+                    notify_sla_warning(db, event.grievance, event)
 
     if warnings_count or breaches_count:
         db.commit()

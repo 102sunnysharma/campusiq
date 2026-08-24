@@ -18,6 +18,8 @@ from app.routers import (
     feedback,
     grievances,
     sla,
+    notifications,
+    audit_logs,
 )
 
 app = FastAPI(
@@ -53,6 +55,8 @@ app.include_router(staff.router)
 app.include_router(feedback.router)
 app.include_router(grievances.router)
 app.include_router(sla.router)
+app.include_router(notifications.router)
+app.include_router(audit_logs.router)
 
 @app.get("/")
 def root():

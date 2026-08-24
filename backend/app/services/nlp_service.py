@@ -262,6 +262,8 @@ def analyze_feedback_background(feedback_id: str, text: str, db_url: str):
         ).first()
         if feedback:
             feedback.status = "analyzed"
+            from app.services.notification_service import notify_feedback_acknowledged
+            notify_feedback_acknowledged(db, feedback)
 
         db.commit()
         logger.info(f"NLP analysis COMPLETED for feedback {feedback_id} — "

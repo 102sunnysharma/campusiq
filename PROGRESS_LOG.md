@@ -295,4 +295,74 @@ This document tracks implementation progress phase by phase as required by Secti
 
 ### What Phase 7 Needs to Know
 - The grievance lifecycle and SLA events tables (`grievances`, `grievance_updates`, `sla_policies`, `sla_events`) are live and operational.
-- Phase 7 will build the Notification Engine & In-App Notification System (Table 13 `notifications`, notification triggers on grievance status change, SLA warnings/breaches, and feedback analysis).
+- Phase 7 builds the Notification Engine & In-App Notification System (Table 13 `notifications`, notification triggers on grievance status change, SLA warnings/breaches, and feedback analysis) + Audit Logging (Table 14 `audit_logs`).
+
+---
+
+## Phase 7 — Notifications & Audit Logging
+
+- **Status**: ✅ Completed
+- **Completed At**: 2026-08-24
+
+### What Was Built
+1. **In-App Notification Engine (`app/services/notification_service.py`)**:
+   - `create_notification`: Core persistence function for all notification types.
+   - `notify_grievance_submitted`: Automated ticket confirmation sent to student upon filing.
+   - `notify_grievance_assigned`: Real-time notification delivered to assigned staff member.
+   - `notify_grievance_status_changed`: Real-time notification to grievance owner on all state transitions (`open` → `in_progress` → `resolved` → `closed`/`reopened`).
+   - `notify_sla_warning`: Dispatched to assigned staff and department HOD when SLA reaches 80% duration threshold.
+   - `notify_sla_breach`: Dispatched to assigned staff, department HOD, and all Administrators on deadline breach.
+   - `notify_feedback_acknowledged`: Sent to student once NLP sentiment analysis completes.
+
+2. **Audit Logging Service (`app/services/audit_service.py`)**:
+   - `log_audit`: Non-blocking structured audit trail logger capturing `user_id`, `action`, `entity_type`, `entity_id`, `old_values`, `new_values`, `ip_address`, and `user_agent`.
+   - Automated audit logs on `grievance_created`, `grievance_status_updated`, `grievance_assigned`, `feedback_submitted`, and user administration.
+
+3. **REST API Routers & Schemas (`app/routers/notifications.py`, `app/routers/audit_logs.py`, `app/schemas/notification.py`, `app/schemas/audit_log.py`)**:
+   - `GET /notifications`: Paginated, filterable notifications for the authenticated user.
+   - `GET /notifications/unread-count`: Live count for navbar badge.
+   - `PATCH /notifications/mark-read`: Bulk mark-read.
+   - `PATCH /notifications/mark-all-read`: Mark all unread as read.
+   - `PATCH /notifications/{id}/mark-read`: Single mark-read.
+   - `GET /audit-logs`: Admin-only paginated audit trail explorer.
+
+4. **React Frontend Notification & Audit Module**:
+   - `src/components/NotificationBell.jsx`: Real-time badge with 30s auto-polling, quick preview dropdown, mark-as-read actions, and deep navigation to relevant grievance/feedback.
+   - `src/pages/NotificationsPage.jsx`: Full notification center with multi-category filters (`All`, `Unread`, `Read`), mark-all-read action, and direct action routing.
+   - `src/pages/AuditLogs.jsx`: Admin security ledger with entity filter, action filter, and JSON mutation payload inspector modal.
+   - `src/services/firebase.js` & `public/firebase-messaging-sw.js`: Firebase Web Push service worker and client messaging SDK scaffolding.
+   - Updated `Navbar.jsx` with active `NotificationBell` and "Audit Logs" admin nav item.
+   - Updated `App.jsx` with `/notifications` and `/audit-logs` routes.
+   - Updated `vite.config.js` proxy table for `/notifications` and `/audit-logs`.
+
+5. **Testing & Verification**:
+   - `backend/tests/test_notifications.py`: 7 pytest tests covering automatic generation, unread counts, single/bulk mark-read, user privacy isolation, audit log generation, and admin-only audit access.
+   - Total backend test suite: **42/42 tests passing (`100%`)**.
+   - Frontend Vite build: **built cleanly in 4.24s**.
+
+### Exact File Paths Created / Modified
+- `backend/app/services/notification_service.py` [NEW]
+- `backend/app/services/audit_service.py` [NEW]
+- `backend/app/schemas/notification.py` [NEW]
+- `backend/app/schemas/audit_log.py` [NEW]
+- `backend/app/routers/notifications.py` [NEW]
+- `backend/app/routers/audit_logs.py` [NEW]
+- `backend/app/routers/grievances.py`
+- `backend/app/services/sla_service.py`
+- `backend/app/services/nlp_service.py`
+- `backend/main.py`
+- `backend/tests/test_notifications.py` [NEW]
+- `frontend/src/components/NotificationBell.jsx` [NEW]
+- `frontend/src/pages/NotificationsPage.jsx` [NEW]
+- `frontend/src/pages/AuditLogs.jsx` [NEW]
+- `frontend/src/services/firebase.js` [NEW]
+- `frontend/public/firebase-messaging-sw.js` [NEW]
+- `frontend/src/components/Navbar.jsx`
+- `frontend/src/App.jsx`
+- `frontend/vite.config.js`
+- `PROGRESS_LOG.md`
+
+### What Phase 8 Needs to Know
+- All operational tables (`feedback`, `feedback_analysis`, `grievances`, `grievance_updates`, `sla_events`, `notifications`, `audit_logs`) are fully populated and tested.
+- Phase 8 will build Analytics & Power BI Integration (`operational_metrics` table aggregation job, Gap Score calculation per Section 12.3 formula, analytics API endpoints, and React dashboard charts).
+

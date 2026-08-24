@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users, MessageSquare, AlertTriangle } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users, MessageSquare, AlertTriangle, FileText } from 'lucide-react';
+import { NotificationBell } from './NotificationBell';
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
@@ -138,6 +139,19 @@ export const Navbar = () => {
                         <span>Feedback</span>
                       </Link>
                     )}
+                    {user.role?.name === 'admin' && (
+                      <Link
+                        to="/audit-logs"
+                        className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                          isActive('/audit-logs')
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                        }`}
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span>Audit Logs</span>
+                      </Link>
+                    )}
                   </>
                 )}
 
@@ -168,9 +182,11 @@ export const Navbar = () => {
             )}
           </div>
 
-          {/* User Section */}
+          {/* User & Notifications Section */}
           {user && (
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 sm:space-x-4">
+              <NotificationBell />
+
               <div className="flex items-center space-x-3 bg-slate-800/60 border border-slate-700/60 rounded-xl py-1.5 px-3">
                 <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-slate-300">
                   <UserIcon className="w-4 h-4" />

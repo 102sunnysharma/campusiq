@@ -14,6 +14,8 @@ import { MyFeedback } from './pages/MyFeedback';
 import { FeedbackManagement } from './pages/FeedbackManagement';
 import { MyGrievances } from './pages/MyGrievances';
 import { GrievanceManagement } from './pages/GrievanceManagement';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { AuditLogs } from './pages/AuditLogs';
 
 /**
  * Role-based feedback page switcher.
@@ -103,6 +105,24 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <GrievancesPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* /notifications available to all authenticated users */}
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* /audit-logs accessible only by admin */}
+          <Route
+            path="/audit-logs"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AuditLogs />
               </ProtectedRoute>
             }
           />

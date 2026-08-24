@@ -18,6 +18,8 @@ export default defineConfig({
       '/feedback': { target: 'http://localhost:8000', changeOrigin: true },
       '/grievances': { target: 'http://localhost:8000', changeOrigin: true },
       '/sla': { target: 'http://localhost:8000', changeOrigin: true },
+      '/notifications': { target: 'http://localhost:8000', changeOrigin: true },
+      '/audit-logs': { target: 'http://localhost:8000', changeOrigin: true },
       '/health': { target: 'http://localhost:8000', changeOrigin: true },
     },
   },
