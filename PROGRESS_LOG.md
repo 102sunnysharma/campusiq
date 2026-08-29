@@ -366,3 +366,60 @@ This document tracks implementation progress phase by phase as required by Secti
 - All operational tables (`feedback`, `feedback_analysis`, `grievances`, `grievance_updates`, `sla_events`, `notifications`, `audit_logs`) are fully populated and tested.
 - Phase 8 will build Analytics & Power BI Integration (`operational_metrics` table aggregation job, Gap Score calculation per Section 12.3 formula, analytics API endpoints, and React dashboard charts).
 
+
+## Phase 8 — Analytics & Power BI Integration (Completed)
+
+Phase 8 of the KRMU Campus Intelligence Platform is fully implemented and verified. We built the database aggregation layer, administrative REST API endpoints, and a beautiful React Analytics Dashboard containing key charts.
+
+### 1. Operations Aggregation Pipeline (`backend/app/services/analytics_service.py`)
+- Created background daily aggregation script mapping every department × category combination to a row in the `operational_metrics` table.
+- Added support for standard operations: `total_feedback`, `negative_feedback`, `total_grievances`, `resolved_grievances`, `sla_breaches`, `avg_resolution_minutes`, and `student_satisfaction`.
+- Implemented the **exact Section 12.3 Gap Score formula**:
+  - `NegativeSentimentScore` (Negative Feedback / Total Feedback * 100)
+  - `SLABreachRate` (SLA Breaches / Total Grievances * 100)
+  - `ResolutionDelayScore` (avg_resolution_minutes / avg_sla_target_minutes * 100, capped at 100)
+  - `GrievanceVolumeScore` (this department's total grievances / maximum department grievances * 100)
+  - `DissatisfactionScore` (100 - student_satisfaction)
+  - Weighted as: `(NegativeSentiment × 0.20) + (SLABreachRate × 0.25) + (ResolutionDelay × 0.20) + (GrievanceVolume × 0.15) + (Dissat × 0.20)`.
+  - Classifies into Low (0-30), Moderate (31-60), High (61-80), and Critical (81-100) bands, rounded to 2 decimal places.
+
+### 2. Startup Scheduled Aggregator Loop (`backend/main.py`)
+- Configured a background startup loop that executes the daily aggregation for yesterday's metric rows immediately on boot, and scheduling it to run every 24 hours.
+
+### 3. REST API Routers & Schemas (`backend/app/routers/analytics.py`, `backend/app/schemas/analytics.py`)
+- `POST /analytics/aggregate` (Admin-only): Manually trigger calculation for any date.
+- `GET /analytics/summary` (Admin/HOD): Aggregate KPI metrics over selected date range.
+- `GET /analytics/departments` (Admin/HOD): Comparative table of department gap scores (sorted desc).
+- `GET /analytics/trends` (Admin/HOD): Time-series trend data grouped by day.
+- `GET /analytics/recurring-issues` (Admin/HOD): Rank top issue categories.
+
+### 4. React Analytics Dashboard & UI Pages:
+- `frontend/src/pages/AnalyticsDashboard.jsx`: Built dashboard using Recharts components:
+  - KPI Summary Cards.
+  - XAxis/YAxis/CartesianGrid AreaChart showing Daily Volume Trends (Feedback vs Grievances).
+  - PieChart displaying Recurring Issues split by category.
+  - Sortable Department Performance table with colored Gap Score badges.
+  - Power BI Integration Guide documenting direct PostgreSQL connection and DAX formulas.
+- Updated `Navbar.jsx` with an Analytics navigation tab for Admin and HOD.
+- Registered `/analytics` route in `App.jsx` restricted via `ProtectedRoute allowedRoles={['admin', 'hod']}`.
+- Added proxy entry in `vite.config.js` for `/analytics`.
+
+### 5. Testing & Verification:
+- `backend/tests/test_analytics.py`: Verified metrics calculations, idempotency, date-filtering, and strict RBAC endpoints.
+- Full pytest suite: **51/51 tests passing (`100%`)**.
+- Frontend Vite build: **Successful bundle compiled cleanly in 14.69s**.
+
+### Exact File Paths Created / Modified
+- `backend/app/services/analytics_service.py` [NEW]
+- `backend/app/schemas/analytics.py` [NEW]
+- `backend/app/routers/analytics.py` [NEW]
+- `backend/tests/test_analytics.py` [NEW]
+- `backend/main.py`
+- `frontend/src/pages/AnalyticsDashboard.jsx` [NEW]
+- `frontend/src/components/Navbar.jsx`
+- `frontend/src/App.jsx`
+- `frontend/vite.config.js`
+- `PROGRESS_LOG.md`
+- `walkthrough.md`
+
+

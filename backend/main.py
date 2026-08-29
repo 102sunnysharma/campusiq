@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.config import settings
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.core.exceptions import http_exception_handler, validation_exception_handler
 from app.routers import (
     auth,
@@ -20,7 +20,12 @@ from app.routers import (
     sla,
     notifications,
     audit_logs,
+    analytics,
 )
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="KRMU Campus Intelligence Platform API",
@@ -57,6 +62,36 @@ app.include_router(grievances.router)
 app.include_router(sla.router)
 app.include_router(notifications.router)
 app.include_router(audit_logs.router)
+app.include_router(analytics.router)
+
+
+async def _daily_aggregation_loop():
+    """
+    Background task that runs the operational_metrics aggregation once on startup
+    for yesterday's data, then repeats every 24 hours.
+    No Redis / Celery / external scheduler required (Section 16, Section 12.1).
+    """
+    from app.services.analytics_service import aggregate_metrics_for_yesterday
+    # Small initial delay to let the DB settle on boot
+    await asyncio.sleep(5)
+    while True:
+        db = SessionLocal()
+        try:
+            rows = aggregate_metrics_for_yesterday(db)
+            logger.info(f"[Analytics] Daily aggregation complete — {rows} rows updated")
+        except Exception as exc:
+            logger.error(f"[Analytics] Daily aggregation failed: {exc}", exc_info=True)
+        finally:
+            db.close()
+        # Sleep 24 hours before the next run
+        await asyncio.sleep(86400)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Launch the daily analytics aggregation loop as a background task."""
+    asyncio.create_task(_daily_aggregation_loop())
+
 
 @app.get("/")
 def root():

@@ -16,6 +16,7 @@ import { MyGrievances } from './pages/MyGrievances';
 import { GrievanceManagement } from './pages/GrievanceManagement';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { AuditLogs } from './pages/AuditLogs';
+import { AnalyticsDashboard } from './pages/AnalyticsDashboard';
 
 /**
  * Role-based feedback page switcher.
@@ -123,6 +124,15 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AuditLogs />
+              </ProtectedRoute>
+            }
+          />
+          {/* /analytics accessible by admin and HOD */}
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'hod']}>
+                <AnalyticsDashboard />
               </ProtectedRoute>
             }
           />

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users, MessageSquare, AlertTriangle, FileText } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users, MessageSquare, AlertTriangle, FileText, BarChart2 } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 
 export const Navbar = () => {
@@ -127,17 +127,30 @@ export const Navbar = () => {
                       <span>Grievances</span>
                     </Link>
                     {(user.role?.name === 'admin' || user.role?.name === 'hod') && (
-                      <Link
-                        to="/feedback"
-                        className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                          isActive('/feedback')
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                        }`}
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        <span>Feedback</span>
-                      </Link>
+                      <>
+                        <Link
+                          to="/feedback"
+                          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                            isActive('/feedback')
+                              ? 'bg-indigo-600 text-white shadow-md'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          <span>Feedback</span>
+                        </Link>
+                        <Link
+                          to="/analytics"
+                          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                            isActive('/analytics')
+                              ? 'bg-indigo-600 text-white shadow-md'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <BarChart2 className="w-4 h-4" />
+                          <span>Analytics</span>
+                        </Link>
+                      </>
                     )}
                     {user.role?.name === 'admin' && (
                       <Link
