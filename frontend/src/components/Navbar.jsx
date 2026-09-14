@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users, MessageSquare, AlertTriangle, FileText, BarChart2 } from 'lucide-react';
+import { LogOut, User as UserIcon, Shield, Sparkles, GraduationCap, Building2, Bus, LayoutDashboard, UserCheck, Users, MessageSquare, AlertTriangle, FileText, BarChart2, UploadCloud } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 
 export const Navbar = () => {
@@ -153,17 +153,30 @@ export const Navbar = () => {
                       </>
                     )}
                     {user.role?.name === 'admin' && (
-                      <Link
-                        to="/audit-logs"
-                        className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                          isActive('/audit-logs')
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                        }`}
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span>Audit Logs</span>
-                      </Link>
+                      <>
+                        <Link
+                          to="/data-imports"
+                          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                            isActive('/data-imports')
+                              ? 'bg-indigo-600 text-white shadow-md'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <UploadCloud className="w-4 h-4" />
+                          <span>Data Import</span>
+                        </Link>
+                        <Link
+                          to="/audit-logs"
+                          className={`flex items-center space-x-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                            isActive('/audit-logs')
+                              ? 'bg-indigo-600 text-white shadow-md'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                          }`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Audit Logs</span>
+                        </Link>
+                      </>
                     )}
                   </>
                 )}

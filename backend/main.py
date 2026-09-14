@@ -21,6 +21,7 @@ from app.routers import (
     notifications,
     audit_logs,
     analytics,
+    data_imports,
 )
 import asyncio
 import logging
@@ -63,6 +64,8 @@ app.include_router(sla.router)
 app.include_router(notifications.router)
 app.include_router(audit_logs.router)
 app.include_router(analytics.router)
+app.include_router(data_imports.router)
+
 
 
 async def _daily_aggregation_loop():

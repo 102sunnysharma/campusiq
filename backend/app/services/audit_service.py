@@ -198,3 +198,30 @@ def audit_password_reset(
         ip_address=ip_address,
         user_agent=user_agent,
     )
+
+
+def audit_data_imported(
+    db: Session,
+    user_id: uuid.UUID,
+    import_id: uuid.UUID,
+    data_type: str,
+    successful: int,
+    failed: int,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None,
+) -> None:
+    log_audit(
+        db=db,
+        action="data_imported",
+        entity_type="data_import",
+        entity_id=import_id,
+        user_id=user_id,
+        new_values={
+            "data_type": data_type,
+            "successful_records": successful,
+            "failed_records": failed,
+        },
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
