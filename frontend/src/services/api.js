@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-// Using relative URLs — Vite dev proxy forwards these to http://localhost:8000
-// In production, configure your reverse proxy (nginx/etc.) to forward /auth, /users, etc.
-const API_BASE_URL = '';
+// In development, Vite's proxy forwards relative URLs to http://localhost:8000.
+// In production (Railway), set VITE_API_URL to your backend's Railway URL,
+// e.g. https://campusiq-backend.up.railway.app
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
