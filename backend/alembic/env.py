@@ -16,8 +16,10 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Set sqlalchemy.url from config settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Force psycopg2 driver — Railway provides postgresql:// but SQLAlchemy
+# defaults to psycopg (v3) which is not installed.
+_db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+config.set_main_option("sqlalchemy.url", _db_url)
 
 target_metadata = Base.metadata
 
