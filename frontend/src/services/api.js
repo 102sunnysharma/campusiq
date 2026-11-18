@@ -3,7 +3,7 @@ import axios from 'axios';
 // In development, Vite's proxy forwards relative URLs to http://localhost:8000.
 // In production (Railway), set VITE_API_URL to your backend's Railway URL,
 // e.g. https://campusiq-backend.up.railway.app
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://campusiq-production-2549fd62.up.railway.app';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
